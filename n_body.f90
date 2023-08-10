@@ -1,42 +1,31 @@
-subroutine distance(x1, y1, z1, x2, y2, z2, d)
-    implicit none
-    real, intent(in) :: x1, y1, x2, y2, z1, z2
-    real             :: d
-    
-    d = sqrt((x1 - x2)**2 + (y1 - y2)**2 + (z1 - z2)**2)
-end subroutine distance
-
-subroutine f_grav(m1, m2, d, Force)
-    implicit none
-    real, intent(in) :: m1, m2, d
-    real             :: G = 6.67 * 10e-11
-    real             :: Force
-    
-    Force = G * (m1 * m2 / d**2)
-end subroutine f_grav
 
 program n_body
     use ISO_FORTRAN_ENV, only: REAL128
     implicit none
     character(len=*), parameter :: OUT_FILE = 'n_body.txt' ! Output file.
-    integer, parameter          :: N = 100, Cycle = 10             ! Number of particles & Cycles         
-    integer                     :: i, j, fu 
+    integer, parameter          :: N = 2, Cycle = 10            ! Number of particles & Cycles         
+    integer                     :: i, j, Frame, idx, fu 
 
-    real                        :: u1(N), u2(N), mu_mass, sigma_mass, z_BM(N), mass(N)
-    real                        :: pi = 4 * atan(1.0)
+    real                        :: mu_mass, sigma_mass 
+    real                        :: pi = 4 * atan(1.0), G = 6.674e-11
+    real                        :: t = 1.0 ! time interval 
 
-    real                        :: x(N), y(N), z(N)
-    real, dimension(N*(N+1))    :: distance_values      ! Array to store distance values between particles
-    real, dimension(N)          :: vx, vy, vz
 
+    real, dimension(N*(N-1))    :: x_distances, y_distances, z_distances, r_squared, combined_masses, Force
+    real, dimension(N)          :: vx, vy, vz, Final_x_Force, Final_y_Force, Final_z_Force, x ,y , z, mass, z_BM, u1, u2, ax, ay, az
+    real, dimension(N)          :: new_x_position, new_y_position, new_z_position, new_vx, new_vy, new_vz
+
+    real , dimension(N*(N-1))   :: unit_x, unit_y, unit_z, Force_x, Force_y, Force_z
+    real , dimension(N-1,N)     :: Force_x_Mat, Force_y_Mat, Force_z_Mat
+  
     ! Creating Mass Array for Objects - Standard Distribution 
     call random_number(u1)
     call random_number(u2)
 
-    z_BM       = sqrt(-2 * log(u1)) * cos(2 * pi * u2)
-    mu_mass    = log(10e25) - 0.5 * log((10e17 / 10e16)**2)
-    sigma_mass = sqrt(log((10e30 / 10e20)**2))
-    mass       = exp(mu_mass + sigma_mass * z_BM)
+    z_BM       = sqrt(-2.0 * log(u1)) * cos(2.0 * pi * u2)
+    mu_mass    = log(10.0e25) - 0.5 * log((10.0e17 / 10.0e16)**2)
+    sigma_mass = sqrt(log((10.0e30 / 10.0e20)**2))
+    mass       = exp(mu_mass + sigma_mass * z_BM) / 10e10
 
     ! Creating initial XYZ Positions for Objects
     
@@ -44,38 +33,109 @@ program n_body
     call random_number(y)
     call random_number(z)
 
-    x = x * 1000 + 1
-    y = y * 1000 + 1
-    z = z * 1000 + 1 
+    x = x * 10e2 + 1
+    y = y * 10e2 + 1
+    z = z * 10e2 + 1 
 
     ! Creating initial velocities
     vx = 0.0
     vy = 0.0
     vz = 0.0
 
+    ax = 0.0
+    ay = 0.0
+    az = 0.0
+
     ! Open output file
     open(newunit=fu, file=OUT_FILE, status='replace', action='write', form='formatted')       
-    do i = 1, N
-        write(fu, *) mass(i), x(i), y(i), z(i), vx(i), vy(i), vz(i)
-            
-        do j = 1, N
-            if (j /= i) then
-            ! Call the distance calculation subroutine and store the result in distance_values
-            call distance(x(i), y(i), z(i), x(j), y(j), z(j), distance_values(j*(j+1) + i))
-            end if
-        end do
+    x_distances = 0.0
+    y_distances = 0.0
+    z_distances = 0.0
+
+    do i = 1, N   
+        write(fu, *) mass(i), x(i), y(i), z(i), Final_x_Force(i), Final_y_Force(i), Final_z_Force(i), ax(i), ay(i), az(i)               
     end do
+    write(fu, *) 
+    
+    do Frame = 1, Cycle    
+        
+        idx = 1   
+        do i = 1, N   
+            
+            do j = 1, N     
+                
+                if (j /= i) then
+                     
+                    x_distances(idx) = x(i) - x(j)        
+                    y_distances(idx) = y(i) - y(j)      
+                    z_distances(idx) = z(i) - z(j)
+                       
+                    r_squared = x_distances ** 2 + y_distances ** 2 + z_distances ** 2
+       
+                    combined_masses(idx) = G * mass(i) * mass(j)
+          
+                    unit_x = x_distances / r_squared         
+                    unit_y = y_distances / r_squared        
+                    unit_z = z_distances / r_squared
+         
+                    Force = combined_masses / r_squared 
+           
+                    Force_x = Force * unit_x          
+                    Force_y = Force * unit_y          
+                    Force_z = Force * unit_z
+                                                
+                    idx = idx + 1
+                          
+                end if      
+            end do   
+        end do
+ 
+        Force_x_Mat = RESHAPE(Force_x, [N-1,N])  
+        Force_y_Mat = RESHAPE(Force_y, [N-1,N]) 
+        Force_z_Mat = RESHAPE(Force_z, [N-1,N])
+  
+        Final_x_Force = 0.0 
+        Final_y_Force = 0.0  
+        Final_z_Force = 0.0  
+        idx = 1
+ 
+        do i = 1, N
    
+            Final_x_Force(idx) = SUM(Force_x_Mat(:,i))  
+            Final_y_Force(idx) = SUM(Force_y_Mat(:,i)) 
+            Final_z_Force(idx) = SUM(Force_z_Mat(:,i))
+      
+            ax(idx)            = Final_x_Force(i) / mass(i)   
+            ay(idx)            = Final_y_Force(i) / mass(i)  
+            az(idx)            = Final_z_Force(i) / mass(i)
+       
+            new_x_position     = x + vx * t + .5 * ax * t **2  
+            new_y_position     = y + vy * t + .5 * ay * t **2   
+            new_z_position     = z + vz * t + .5 * az * t **2
+   
+            new_vx             = vx + ax * t   
+            new_vy             = vy + ay * t   
+            new_vz             = vz + az * t   
+            idx = idx + 1
+    
+ 
+        end do
+
+        x = new_x_position
+        y = new_y_position
+        z = new_z_position
+        vx = new_vx
+        vy = new_vy
+        vz = new_vz
+  
+        do i = 1, N   
+            write(fu, *) mass(i), x(i), y(i), z(i), Final_x_Force(i), Final_y_Force(i), Final_z_Force(i), ax(i), ay(i), az(i)               
+        end do 
+            write(fu, *)
+    end do
+         
     close(fu)
 
-    ! Print the distance values
-    do i = 1, N
-        do j = 1, N
-            if (j /= i) then
-            write(*, '(A, I3, A, I3, A, F12.6)') "Distance between particles ", i, " and ", j, ": ", distance_values(j*(j+1) + i)
-            end if
-        end do
-    end do
 end program n_body
 
 
