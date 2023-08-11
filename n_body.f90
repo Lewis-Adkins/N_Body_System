@@ -3,13 +3,12 @@ program n_body
     use ISO_FORTRAN_ENV, only: REAL128
     implicit none
     character(len=*), parameter :: OUT_FILE = 'n_body.txt' ! Output file.
-    integer, parameter          :: N = 2, Cycle = 10            ! Number of particles & Cycles         
+    integer, parameter          :: N = 4, Cycle = 2           ! Number of particles & Cycles         
     integer                     :: i, j, Frame, idx, fu 
 
     real                        :: mu_mass, sigma_mass 
     real                        :: pi = 4 * atan(1.0), G = 6.674e-11
     real                        :: t = 1.0 ! time interval 
-
 
     real, dimension(N*(N-1))    :: x_distances, y_distances, z_distances, r_squared, combined_masses, Force
     real, dimension(N)          :: vx, vy, vz, Final_x_Force, Final_y_Force, Final_z_Force, x ,y , z, mass, z_BM, u1, u2, ax, ay, az
@@ -46,12 +45,13 @@ program n_body
     ay = 0.0
     az = 0.0
 
-    ! Open output file
-    open(newunit=fu, file=OUT_FILE, status='replace', action='write', form='formatted')       
     x_distances = 0.0
     y_distances = 0.0
     z_distances = 0.0
 
+    ! Open output file
+    open(newunit=fu, file=OUT_FILE, status='replace', action='write', form='formatted')       
+    !write(fu, *) 'Mass', 'x', 'y', 'z', 'Fx', 'Fy', 'Fz', 'ax', 'ay', 'az'
     do i = 1, N   
         write(fu, *) mass(i), x(i), y(i), z(i), Final_x_Force(i), Final_y_Force(i), Final_z_Force(i), ax(i), ay(i), az(i)               
     end do
