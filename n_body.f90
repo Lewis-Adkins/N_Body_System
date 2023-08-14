@@ -3,11 +3,11 @@ program n_body
     use ISO_FORTRAN_ENV, only: REAL128
     implicit none
     character(len=*), parameter :: OUT_FILE = 'n_body.txt' ! Output file.
-    integer, parameter          :: N = 100, Cycle = 1000           ! Number of particles & Cycles         
+    integer, parameter          :: N = 100, Cycle = 1000          ! Number of particles & Cycles         
     integer                     :: i, j, Frame, idx, fu 
 
     real                        :: mu_mass, sigma_mass 
-    real                        :: pi = 4 * atan(1.0), G = 6.674e-11
+    real                        :: pi = 4 * atan(1.0), G = 6.674e-11, epsilon = 10e5
     real                        :: t = 0.5 ! time interval 
 
     real, dimension(N*(N-1))    :: x_distances, y_distances, z_distances, r, combined_masses, Force
@@ -74,9 +74,9 @@ program n_body
        
                     combined_masses(idx) = G * mass(i) * mass(j)
            
-                    Force_x = -x_distances * combined_masses/(r **3)          
-                    Force_y = -y_distances * combined_masses/(r **3)                  
-                    Force_z = -z_distances * combined_masses/(r **3)          
+                    Force_x = -x_distances * combined_masses/(r **3 + epsilon ** 2)          
+                    Force_y = -y_distances * combined_masses/(r **3 + epsilon ** 2)                  
+                    Force_z = -z_distances * combined_masses/(r **3 + epsilon ** 2)          
                                                 
                     idx = idx + 1
                           
